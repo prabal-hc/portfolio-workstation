@@ -6,6 +6,8 @@ one monitor per section. The section content is real HTML laid exactly over the 
 
 Next.js 16 (static export) · React Three Fiber · drei · postprocessing · Lenis.
 
+Live: https://prabalholla-workstation.netlify.app. Every push to `main` deploys automatically on Netlify.
+
 ```bash
 npm install
 npm run dev        # http://localhost:3000  (add ?skip to bypass the intro gate while developing)
