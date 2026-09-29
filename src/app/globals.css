@@ -528,62 +528,77 @@ html[data-stop="screen"] .screen {
   margin-top: 0.4em;
 }
 
-/* skills: endless rows gliding in alternate directions */
-.marquees {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5cqw;
-}
-.marquee {
+/* skills: the spec sheet, a card per category */
+.specs {
   display: grid;
-  grid-template-columns: 9cqw 1fr;
-  align-items: center;
-  gap: 2cqw;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.4cqw;
 }
-.marquee-label {
+.spec {
+  position: relative;
+  padding: clamp(12px, 1.6cqw, 22px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, rgba(20, 18, 34, 0.72), rgba(8, 9, 18, 0.55));
+  overflow: hidden;
+}
+/* a thin accent line that draws across the top as the card arrives */
+.spec::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), #ff2a6d 55%, #7b5cff);
+  transform-origin: left;
+  transform: scaleX(var(--e));
+}
+.spec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9cqw;
   font-family: var(--mono);
-  font-size: clamp(10px, 1cqw, 12px);
+  font-size: clamp(10px, 0.95cqw, 12px);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--cyan);
+  margin-bottom: 1.1cqw;
 }
-.marquee-track {
-  display: flex;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-}
-.marquee-run {
-  flex: none;
-  display: flex;
-  animation: marquee 32s linear infinite;
-  animation-play-state: paused;
-}
-.marquee.is-reverse .marquee-run {
-  animation-direction: reverse;
-  animation-duration: 38s;
-}
-.sec[data-active] .marquee-run {
-  animation-play-state: running;
-}
-.marquee-item {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(18px, 2.5cqw, 34px);
-  color: #eef1f5;
-  white-space: nowrap;
-  padding-right: 1.6cqw;
-}
-.marquee-item::after {
-  content: "✦";
-  font-size: 0.45em;
-  vertical-align: middle;
+.spec-no {
   color: var(--orange);
-  padding-left: 1.6cqw;
 }
-@keyframes marquee {
-  to {
-    transform: translate3d(-100%, 0, 0);
-  }
+.spec-name {
+  color: #eef1f5;
+}
+.spec-count {
+  margin-left: auto;
+  color: var(--faint);
+}
+.spec-count::after {
+  content: " items";
+}
+.spec-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55cqw;
+}
+.spec-items li {
+  font-size: clamp(11px, 1.15cqw, 14px);
+  line-height: 1;
+  color: #dfe6ee;
+  padding: 0.55em 0.85em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
+  transition:
+    border-color 0.3s var(--ease),
+    color 0.3s var(--ease),
+    background 0.3s var(--ease);
+}
+.spec-items li:hover {
+  border-color: var(--orange);
+  color: #fff;
+  background: rgba(255, 106, 26, 0.1);
 }
 
 /* work: an index of projects */
@@ -1019,11 +1034,14 @@ html[data-loading] .copy-hero > .hero-name {
     justify-content: start;
     gap: 22px;
   }
-  .marquees {
-    gap: 14px;
-  }
-  .marquee {
+  .specs {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .spec-head {
+    margin-bottom: 10px;
+  }
+  .spec-items {
     gap: 6px;
   }
   .index-row {
@@ -1053,8 +1071,7 @@ html[data-loading] .copy-hero > .hero-name {
 
 @media (prefers-reduced-motion: reduce) {
   .mouse::after,
-  .loader-line span,
-  .marquee-run {
+  .loader-line span {
     animation: none;
   }
   /* the name and role simply appear, no rising */

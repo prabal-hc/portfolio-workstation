@@ -251,21 +251,20 @@ function Screen() {
           </Section>
 
           <Section i={1} label={skills.label} title={skills.title}>
-            <div className="marquees">
+            {/* the spec sheet: one card per category, every skill whole and readable */}
+            <div className="specs">
               {skills.groups.map((g, i) => (
-                <Fx key={g.name} n={i} className={`marquee ${i % 2 ? "is-reverse" : ""}`}>
-                  <span className="marquee-label">{g.name}</span>
-                  <div className="marquee-track">
-                    {[0, 1].map((copy) => (
-                      <span key={copy} className="marquee-run" aria-hidden={copy === 1}>
-                        {g.items.map((it) => (
-                          <span key={it} className="marquee-item">
-                            {it}
-                          </span>
-                        ))}
-                      </span>
+                <Fx key={g.name} n={i} className="spec">
+                  <p className="spec-head">
+                    <span className="spec-no">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="spec-name">{g.name}</span>
+                    <span className="spec-count">{g.items.length}</span>
+                  </p>
+                  <ul className="spec-items">
+                    {g.items.map((it) => (
+                      <li key={it}>{it}</li>
                     ))}
-                  </div>
+                  </ul>
                 </Fx>
               ))}
             </div>
