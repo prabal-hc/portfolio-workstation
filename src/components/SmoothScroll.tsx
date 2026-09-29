@@ -26,8 +26,14 @@ export const goToTab = (i: number) => glide(tabStart(i));
  */
 export default function SmoothScroll() {
   useEffect(() => {
+    // Every visit starts at the beginning (the face), never where the last one left off.
+    // (The inline script in layout.tsx does this before load too; this covers anything that slipped past.)
+    history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+
     const lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.8, touchMultiplier: 1.3 });
     state.lenis = lenis;
+    lenis.scrollTo(0, { immediate: true, force: true });
 
     const sync = () => {
       const y = lenis.scroll / window.innerHeight;
@@ -37,6 +43,15 @@ export default function SmoothScroll() {
     lenis.on("scroll", sync);
     window.addEventListener("resize", sync);
     sync();
+
+    // coming back with the browser's back/forward button restores the page from memory: start over there too
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      lenis.scrollTo(0, { immediate: true, force: true });
+      state.shown = 0;
+      sync();
+    };
+    window.addEventListener("pageshow", onShow);
 
     // arrows / page keys / space glide to the next resting point
     const onKey = (e: KeyboardEvent) => {
@@ -62,6 +77,7 @@ export default function SmoothScroll() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", sync);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pageshow", onShow);
       lenis.destroy();
       state.lenis = null;
     };

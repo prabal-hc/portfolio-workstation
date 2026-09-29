@@ -39,6 +39,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // data-loading is removed by <Loader/> once the scene is ready
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`} data-loading="">
+      <head>
+        {/* Always start at the beginning: stop the browser restoring the old scroll position on refresh.
+            Inline and first, so it runs before the browser gets the chance. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `history.scrollRestoration="manual";window.scrollTo(0,0);`,
+          }}
+        />
+      </head>
       <body>
         <noscript>
           <style>{`.loader{display:none}.copy,.screen{opacity:1!important;position:relative!important;inset:auto!important;width:auto!important;height:auto!important}.copy-hero>*,.copy-hero .hero-word{opacity:1!important;transform:none!important}`}</style>
