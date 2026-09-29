@@ -1,5 +1,5 @@
 import Hud from "@/components/Hud";
-import Intro from "@/components/Intro";
+import Loader from "@/components/Loader";
 import Overlay from "@/components/Overlay";
 import SmoothScroll from "@/components/SmoothScroll";
 import SceneClient from "@/components/three/SceneClient";
@@ -13,7 +13,7 @@ export default function Home() {
         <Overlay />
       </main>
       <Hud />
-      <Intro />
+      <Loader />
     </>
   );
 }

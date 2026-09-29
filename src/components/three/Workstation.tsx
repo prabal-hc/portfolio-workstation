@@ -4,34 +4,22 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import { DESK, KEYBOARD, MONITORS, MOUSE, SCREEN_H, SCREEN_W, SCREEN_Y, type Monitor, type MonitorId } from "@/lib/scene";
-import { STOPS } from "@/lib/timeline";
-import { FOCUS } from "@/lib/shots";
-import { state } from "@/lib/state";
-import { jarvis } from "@/lib/jarvis";
-import { ScreenFeed, type Mode } from "./screenFeeds";
+import { DESK, KEYBOARD, MONITORS, MOUSE, SCREEN_H, SCREEN_W, SCREEN_Y, type Monitor } from "@/lib/scene";
+import { ScreenFeed } from "./screenFeeds";
 
-const RGB_SPEED = 0.08;
-
-/** Which app each monitor runs for the stop the camera is on. */
-function modeFor(id: MonitorId, stop: number, greeted: boolean): Mode {
-  const s = STOPS[stop].id;
-  if (s === "hero") return greeted ? "jarvis" : "standby";
-  if (s === "welcome") return "jarvis";
-  if (s === "contact") return "contact";
-  if (id === "left") return "terminal";
-  if (id === "right") return "browser";
-  return stop >= 5 ? "git" : "code";
-}
+const RGB_SPEED = 0.05;
 
 export function Workstation() {
   const feeds = useMemo(() => {
     if (typeof document === "undefined") return null;
     return { left: new ScreenFeed("left"), center: new ScreenFeed("center"), right: new ScreenFeed("right") };
   }, []);
-  useEffect(() => () => {
-    if (feeds) Object.values(feeds).forEach((f) => f.texture.dispose());
-  }, [feeds]);
+  useEffect(
+    () => () => {
+      if (feeds) Object.values(feeds).forEach((f) => f.texture.dispose());
+    },
+    [feeds],
+  );
 
   const mats = useMemo(
     () => ({
@@ -41,58 +29,30 @@ export function Workstation() {
       bezel: new THREE.MeshStandardMaterial({ color: "#050506", roughness: 0.25, metalness: 0.4 }),
       mat: new THREE.MeshStandardMaterial({ color: "#0b0c10", roughness: 0.95 }),
       key: new THREE.MeshStandardMaterial({ color: "#121318", roughness: 0.5 }),
-      rgb: new THREE.MeshStandardMaterial({ color: "#000", emissive: "#ff2a6d", emissiveIntensity: 2.5, toneMapped: false }),
-      rgb2: new THREE.MeshStandardMaterial({ color: "#000", emissive: "#3ad7ff", emissiveIntensity: 2.5, toneMapped: false }),
-      reactor: new THREE.MeshStandardMaterial({ color: "#000", emissive: "#7fe8ff", emissiveIntensity: 4, toneMapped: false }),
+      rgb: new THREE.MeshStandardMaterial({ color: "#000", emissive: "#ff2a6d", emissiveIntensity: 2.2, toneMapped: false }),
+      rgb2: new THREE.MeshStandardMaterial({ color: "#000", emissive: "#3ad7ff", emissiveIntensity: 2.2, toneMapped: false }),
       glass: new THREE.MeshPhysicalMaterial({ color: "#8fa6c0", roughness: 0.05, metalness: 0, transparent: true, opacity: 0.18, envMapIntensity: 2 }),
       ceramic: new THREE.MeshStandardMaterial({ color: "#e8e4dc", roughness: 0.35 }),
       coffee: new THREE.MeshStandardMaterial({ color: "#2b1509", roughness: 0.15 }),
-      leaf: new THREE.MeshStandardMaterial({ color: "#2f6b3a", roughness: 0.6, side: THREE.DoubleSide }),
-      pot: new THREE.MeshStandardMaterial({ color: "#2a2b2f", roughness: 0.8 }),
     }),
     [],
   );
 
   const pcLight = useRef<THREE.PointLight>(null);
-  const screenLight = useRef<THREE.RectAreaLight>(null);
   const fans = useRef<THREE.Group[]>([]);
   const color = useMemo(() => new THREE.Color(), []);
   const color2 = useMemo(() => new THREE.Color(), []);
 
   useFrame((st) => {
     const t = st.clock.elapsedTime;
-    const stop = Math.round(THREE.MathUtils.clamp(state.shown, 0, STOPS.length - 1));
-    if (feeds) {
-      const dwell = state.track.dwell;
-      const nearest = Math.round(state.track.p);
-      // once the camera has landed, the focused screen is hidden under the HTML panel: stop repainting it
-      const landed = Math.abs(state.shown - stop) < 0.002;
-      const focus = FOCUS[STOPS[stop].id];
-      for (const f of Object.values(feeds)) {
-        f.setMode(modeFor(f.id, stop, jarvis.greeted), t);
-        if (landed && focus === f.id && t - f.since > 0.5) continue;
-        const pages = STOPS[nearest].pages;
-        const page = dwell >= 0 && pages > 1 && nearest === stop ? Math.min(Math.floor(dwell * pages), pages - 1) : -1;
-        f.draw(t, page);
-      }
-      // one wide light for the three screens, tinted by what the centre one shows
-      const L = screenLight.current;
-      if (L) {
-        const m = feeds.center.mode;
-        L.color.set(m === "standby" ? "#1b3550" : m === "jarvis" ? "#57dcff" : m === "contact" ? "#ffffff" : "#a8c8ff");
-        L.intensity = m === "standby" ? 1.5 : 6;
-      }
-    }
-    // RGB cycle
+    if (feeds) for (const f of Object.values(feeds)) f.draw(t);
+    // a slow RGB drift on the PC, keyboard and desk strip
     color.setHSL((t * RGB_SPEED) % 1, 1, 0.55);
     color2.setHSL((t * RGB_SPEED + 0.5) % 1, 1, 0.55);
     mats.rgb.emissive.copy(color);
     mats.rgb2.emissive.copy(color2);
     if (pcLight.current) pcLight.current.color.copy(color);
     fans.current.forEach((f, i) => f && (f.rotation.z = t * (6 + i)));
-    // the arc reactor flares while JARVIS speaks
-    const flare = jarvis.speaking ? 1 + Math.sin(t * 18) * 0.25 + 1.5 : 1 + Math.sin(t * 2) * 0.12;
-    mats.reactor.emissiveIntensity = 3 * flare;
   });
 
   return (
@@ -103,12 +63,12 @@ export function Workstation() {
         <MonitorRig key={m.id} m={m} mats={mats} feed={feeds?.[m.id]} />
       ))}
       {/* the glow of all three screens on the person and the desk */}
-      <rectAreaLight ref={screenLight} width={1.7} height={SCREEN_H} intensity={6} color="#a8c8ff" position={[0, SCREEN_Y, 0.02]} rotation-y={Math.PI} />
+      <rectAreaLight width={1.7} height={SCREEN_H} intensity={5} color="#d9b8ff" position={[0, SCREEN_Y, 0.02]} rotation-y={Math.PI} />
 
       <Keyboard mats={mats} />
       {/* mouse */}
       <group position={[MOUSE.x, DESK.top + 0.004, MOUSE.z]}>
-        <mesh scale={[0.034, 0.02, 0.058]} position={[0, 0.016, 0]} material={mats.plastic} castShadow>
+        <mesh scale={[0.034, 0.02, 0.058]} position={[0, 0.016, 0]} material={mats.plastic}>
           <sphereGeometry args={[1, 24, 16]} />
         </mesh>
         <mesh position={[0, 0.03, -0.02]} material={mats.rgb2}>
@@ -118,7 +78,7 @@ export function Workstation() {
 
       {/* coffee */}
       <group position={[-0.44, DESK.top, 0.22]}>
-        <mesh position={[0, 0.05, 0]} material={mats.ceramic} castShadow>
+        <mesh position={[0, 0.05, 0]} material={mats.ceramic}>
           <cylinderGeometry args={[0.04, 0.036, 0.1, 24]} />
         </mesh>
         <mesh position={[0, 0.094, 0]} rotation-x={-Math.PI / 2} material={mats.coffee}>
@@ -127,50 +87,6 @@ export function Workstation() {
         <mesh position={[0.045, 0.05, 0]} material={mats.ceramic}>
           <torusGeometry args={[0.022, 0.007, 8, 16]} />
         </mesh>
-      </group>
-
-      {/* arc-reactor desk piece (JARVIS lives here) */}
-      <group position={[0.8, DESK.top, 0.27]} rotation-y={-0.35}>
-        <mesh position={[0, 0.02, 0]} material={mats.frame}>
-          <cylinderGeometry args={[0.07, 0.08, 0.04, 32]} />
-        </mesh>
-        <group position={[0, 0.12, 0]} rotation-x={-0.2}>
-          <mesh material={mats.frame}>
-            <cylinderGeometry args={[0.075, 0.075, 0.02, 40]} />
-          </mesh>
-          <group rotation-x={-Math.PI / 2}>
-            <mesh position={[0, 0, 0.0105]} material={mats.reactor}>
-              <ringGeometry args={[0.035, 0.06, 40]} />
-            </mesh>
-            <mesh position={[0, 0, 0.0105]} material={mats.reactor}>
-              <circleGeometry args={[0.02, 24]} />
-            </mesh>
-          </group>
-          {Array.from({ length: 10 }, (_, i) => (
-            <mesh key={i} rotation-y={(i / 10) * Math.PI * 2} position={[0, 0.011, 0]} material={mats.frame}>
-              <boxGeometry args={[0.006, 0.004, 0.12]} />
-            </mesh>
-          ))}
-        </group>
-        <mesh position={[0, 0.07, 0]} material={mats.frame}>
-          <cylinderGeometry args={[0.008, 0.008, 0.1, 8]} />
-        </mesh>
-      </group>
-
-      {/* plant */}
-      <group position={[-1.27, DESK.top, -0.33]}>
-        <mesh position={[0, 0.07, 0]} material={mats.pot}>
-          <cylinderGeometry args={[0.07, 0.055, 0.14, 24]} />
-        </mesh>
-        {Array.from({ length: 9 }, (_, i) => {
-          const a = (i / 9) * Math.PI * 2;
-          const tilt = 0.5 + (i % 3) * 0.2;
-          return (
-            <mesh key={i} position={[Math.sin(a) * 0.03, 0.2 + (i % 3) * 0.03, Math.cos(a) * 0.03]} rotation={[tilt * Math.cos(a), a, tilt * Math.sin(a)]} scale={[0.035, 0.13, 0.008]} material={mats.leaf}>
-              <sphereGeometry args={[1, 10, 8]} />
-            </mesh>
-          );
-        })}
       </group>
 
       <GamingPC mats={mats} fans={fans} lightRef={pcLight} />
@@ -184,7 +100,7 @@ function Desk({ mats }: { mats: Mats }) {
   const y = DESK.top;
   return (
     <group position={[0, 0, DESK.z]}>
-      <RoundedBox args={[DESK.width, 0.04, DESK.depth]} radius={0.012} position={[0, y - 0.02, 0]} material={mats.wood} castShadow receiveShadow />
+      <RoundedBox args={[DESK.width, 0.04, DESK.depth]} radius={0.012} position={[0, y - 0.02, 0]} material={mats.wood} />
       {/* RGB strip along the back edge, underneath */}
       <mesh position={[0, y - 0.045, -DESK.depth / 2 + 0.02]} material={mats.rgb}>
         <boxGeometry args={[DESK.width - 0.1, 0.008, 0.008]} />
@@ -192,7 +108,7 @@ function Desk({ mats }: { mats: Mats }) {
       {/* T-frame legs */}
       {[-1, 1].map((s) => (
         <group key={s} position={[(DESK.width / 2 - 0.12) * s, 0, 0]}>
-          <mesh position={[0, (y - 0.04) / 2, 0]} material={mats.frame} castShadow>
+          <mesh position={[0, (y - 0.04) / 2, 0]} material={mats.frame}>
             <boxGeometry args={[0.06, y - 0.04, 0.08]} />
           </mesh>
           <mesh position={[0, 0.015, 0]} material={mats.frame}>
@@ -207,7 +123,7 @@ function Desk({ mats }: { mats: Mats }) {
         <boxGeometry args={[DESK.width - 0.3, 0.05, 0.03]} />
       </mesh>
       {/* desk mat with a lit edge */}
-      <RoundedBox args={[1.1, 0.004, 0.42]} radius={0.002} position={[0.08, y + 0.002, 0.17]} material={mats.mat} receiveShadow />
+      <RoundedBox args={[1.1, 0.004, 0.42]} radius={0.002} position={[0.08, y + 0.002, 0.17]} material={mats.mat} />
       <RoundedBox args={[1.114, 0.002, 0.434]} radius={0.001} position={[0.08, y + 0.0005, 0.17]} material={mats.rgb2} />
     </group>
   );
@@ -223,7 +139,7 @@ function MonitorRig({ m, mats, feed }: { m: Monitor; mats: Mats; feed?: ScreenFe
   return (
     <group position={[m.x, 0, m.z]} rotation-y={m.rotY}>
       <group position={[0, SCREEN_Y, 0]}>
-        <RoundedBox args={[bw, bh, 0.022]} radius={0.006} material={mats.bezel} castShadow />
+        <RoundedBox args={[bw, bh, 0.022]} radius={0.006} material={mats.bezel} />
         <mesh position={[0, 0, 0.0115]} material={screenMat}>
           <planeGeometry args={[SCREEN_W, SCREEN_H]} />
         </mesh>
@@ -237,7 +153,7 @@ function MonitorRig({ m, mats, feed }: { m: Monitor; mats: Mats; feed?: ScreenFe
       <mesh position={[0, (SCREEN_Y - 0.02 + DESK.top) / 2, -0.07]} material={mats.frame}>
         <boxGeometry args={[0.05, SCREEN_Y - DESK.top - 0.02, 0.02]} />
       </mesh>
-      <RoundedBox args={[0.26, 0.012, 0.18]} radius={0.005} position={[0, DESK.top + 0.006, -0.05]} material={mats.frame} castShadow />
+      <RoundedBox args={[0.26, 0.012, 0.18]} radius={0.005} position={[0, DESK.top + 0.006, -0.05]} material={mats.frame} />
     </group>
   );
 }
@@ -268,7 +184,7 @@ function Keyboard({ mats }: { mats: Mats }) {
   }, [keys]);
   return (
     <group position={[KEYBOARD.x, DESK.top + 0.004, KEYBOARD.z]} rotation-y={0.04}>
-      <RoundedBox args={[0.45, 0.022, 0.15]} radius={0.008} position={[0, 0.011, 0]} material={mats.plastic} castShadow />
+      <RoundedBox args={[0.45, 0.022, 0.15]} radius={0.008} position={[0, 0.011, 0]} material={mats.plastic} />
       <mesh position={[0, 0.023, 0]} rotation-x={-Math.PI / 2} material={mats.rgb}>
         <planeGeometry args={[0.43, 0.135]} />
       </mesh>

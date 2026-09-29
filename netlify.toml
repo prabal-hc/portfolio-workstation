@@ -7,13 +7,15 @@
   # Next.js 16 needs Node 20.9 or newer.
   NODE_VERSION = "22"
 
-# Long-lived caching for the fingerprinted build assets and the 3D model.
+# Long-lived caching for the fingerprinted build assets.
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# The link-preview card is exported without a file extension: say it is a PNG, or LinkedIn may not show it.
 [[headers]]
-  for = "/models/*"
+  for = "/opengraph-image"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Content-Type = "image/png"
+    Cache-Control = "public, max-age=3600"

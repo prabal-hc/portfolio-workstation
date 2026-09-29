@@ -4,15 +4,13 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
-import { CHAIR, KEYBOARD, MONITORS, MOUSE } from "@/lib/scene";
-import { FOCUS } from "@/lib/shots";
-import { STOPS } from "@/lib/timeline";
+import { CHAIR, KEYBOARD, MOUSE } from "@/lib/scene";
 import { state } from "@/lib/state";
 
 /**
  * A stylised person at the desk, built from primitives (vinyl-toy style) so it can be posed live:
  * the arms are solved with two-bone IK every frame, the head tracks the camera on the hero shot and
- * the focused monitor afterwards, and the chair swivels round to face the viewer at the start.
+ * the centre monitor afterwards, and the chair swivels round to face the viewer at the start.
  *
  * Local frame: origin on the floor under the chair, the person faces −Z.
  */
@@ -135,7 +133,7 @@ export function Person() {
     L.pose = THREE.MathUtils.damp(L.pose, Math.pow(hero, 0.8), 4, dt);
     if (root.current) root.current.rotation.y = L.swivel;
 
-    // where to look: the camera on the hero, the focused monitor after
+    // where to look: the camera on the hero, the centre monitor after
     let yaw = 0;
     let pitch = -0.08;
     if (root.current && head.current) {
@@ -144,19 +142,8 @@ export function Person() {
       _cam.y -= 1.28;
       const camYaw = Math.atan2(-_cam.x, -_cam.z);
       const camPitch = Math.atan2(_cam.y, Math.hypot(_cam.x, _cam.z));
-      const idx = Math.round(THREE.MathUtils.clamp(shown, 0, STOPS.length - 1));
-      const focus = FOCUS[STOPS[idx].id];
-      let workYaw = 0;
-      if (focus) {
-        const m = MONITORS[focus];
-        const lx = m.x - CHAIR.x;
-        const lz = m.z - CHAIR.z;
-        // rotate into the swivelled frame
-        const c = Math.cos(-L.swivel);
-        const s = Math.sin(-L.swivel);
-        workYaw = Math.atan2(-(lx * c + lz * s), -(-lx * s + lz * c));
-      }
-      yaw = THREE.MathUtils.lerp(workYaw, THREE.MathUtils.clamp(camYaw, -0.9, 0.9), hero);
+      // straight ahead at the centre monitor once the chair has swung back
+      yaw = THREE.MathUtils.lerp(0, THREE.MathUtils.clamp(camYaw, -0.9, 0.9), hero);
       pitch = THREE.MathUtils.lerp(-0.1, THREE.MathUtils.clamp(camPitch, -0.35, 0.35), hero);
       // a lazy idle drift
       yaw += Math.sin(t * 0.37) * 0.03;
@@ -216,7 +203,7 @@ export function Person() {
   });
 
   const limb = (key: string, r: number, len: number, mat: THREE.Material) => (
-    <mesh ref={(m) => void (limbs.current[key] = m)} material={mat} castShadow>
+    <mesh ref={(m) => void (limbs.current[key] = m)} material={mat}>
       <capsuleGeometry args={[r, len, 6, 14]} />
     </mesh>
   );
@@ -232,21 +219,21 @@ export function Person() {
           const m = new THREE.Object3D();
           span(m, l.a, l.b);
           return (
-            <mesh key={i} position={m.position} quaternion={m.quaternion} material={mats.pants} castShadow>
+            <mesh key={i} position={m.position} quaternion={m.quaternion} material={mats.pants}>
               <capsuleGeometry args={[l.r, len, 6, 14]} />
             </mesh>
           );
         })}
         {[-1, 1].map((s) => (
           <group key={s} position={[0.13 * s, 0.05, -0.5]}>
-            <RoundedBox args={[0.105, 0.08, 0.26]} radius={0.035} material={mats.sole} castShadow />
+            <RoundedBox args={[0.105, 0.08, 0.26]} radius={0.035} material={mats.sole} />
             <RoundedBox args={[0.1, 0.05, 0.16]} radius={0.02} position={[0, 0.04, 0.04]} material={mats.dark} />
           </group>
         ))}
 
         {/* torso (hoodie) */}
         <group ref={torso} position={[0, 0.6, 0.02]} rotation-x={-0.12}>
-          <mesh position={[0, 0.24, 0]} scale={[1.22, 1, 0.78]} material={mats.hoodie} castShadow>
+          <mesh position={[0, 0.24, 0]} scale={[1.22, 1, 0.78]} material={mats.hoodie}>
             <capsuleGeometry args={[0.15, 0.26, 8, 24]} />
           </mesh>
           {/* hood bunched behind the neck */}
@@ -274,7 +261,7 @@ export function Person() {
           </mesh>
         ))}
         {(["L", "R"] as const).map((k) => (
-          <mesh key={k} ref={(m) => void (hands.current[k] = m)} material={mats.skin} scale={[1.05, 0.55, 1.35]} castShadow>
+          <mesh key={k} ref={(m) => void (hands.current[k] = m)} material={mats.skin} scale={[1.05, 0.55, 1.35]}>
             <sphereGeometry args={[0.036, 16, 12]} />
           </mesh>
         ))}
@@ -292,7 +279,7 @@ export function Person() {
         {/* head, pivoting at the top of the neck */}
         <group ref={head} position={[0, 1.16, -0.065]}>
           <group position={[0, 0.0, -0.01]}>
-            <mesh position={[0, 0.11, 0]} scale={[0.9, 1.08, 1]} material={mats.skin} castShadow>
+            <mesh position={[0, 0.11, 0]} scale={[0.9, 1.08, 1]} material={mats.skin}>
               <sphereGeometry args={[0.104, 32, 24]} />
             </mesh>
             {/* jaw / chin */}
@@ -391,10 +378,10 @@ function Chair({ mats }: { mats: Record<string, THREE.Material> }) {
   return (
     <group>
       {/* seat */}
-      <RoundedBox args={[0.52, 0.09, 0.5]} radius={0.04} position={[0, 0.47, 0.03]} material={mats.chair} castShadow />
+      <RoundedBox args={[0.52, 0.09, 0.5]} radius={0.04} position={[0, 0.47, 0.03]} material={mats.chair} />
       {/* backrest with bolsters and an orange racing stripe */}
       <group position={[0, 0.84, 0.3]} rotation-x={0.14}>
-        <RoundedBox args={[0.5, 0.64, 0.09]} radius={0.04} material={mats.chair} castShadow />
+        <RoundedBox args={[0.5, 0.64, 0.09]} radius={0.04} material={mats.chair} />
         {[-1, 1].map((s) => (
           <RoundedBox key={s} args={[0.08, 0.6, 0.12]} radius={0.035} position={[0.22 * s, -0.02, -0.01]} material={mats.chair} />
         ))}

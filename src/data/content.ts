@@ -19,16 +19,6 @@ export const hero = {
   tagline: "This is where I build. Scroll, and I'll show you around the desk.",
 };
 
-/** What the assistant says when the camera swings behind the desk. */
-export const jarvis = {
-  line: "Welcome to my portfolio.",
-  /** seconds into the startup sound when the voice line comes in (the orbit lands at ~2.2s) */
-  voiceAt: 2.4,
-  /** optional separate voice clip in /public (e.g. "/audio/jarvis-welcome.mp3"); null = the startup sound carries the greeting */
-  voiceClip: null as string | null,
-  status: ["Power core online", "Displays synced", "Portfolio loaded"],
-};
-
 export const about = {
   label: "01 — About",
   title: "Building for the web, obsessively.",

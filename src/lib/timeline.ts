@@ -1,34 +1,44 @@
 /**
- * The page is one long scroll track split into "stops". Each stop is a camera shot.
+ * The page is one long scroll track with three camera stops:
+ *   hero   – on the person's face
+ *   desk   – orbited round behind the chair, the whole setup in view
+ *   screen – moved in on the centre monitor, where the sections slide past as tabs
  *
- *   trans – scroll length (in viewport heights) of the move INTO this stop
- *   dwell – scroll length spent parked on this stop (long dwells page through tabs on the screen)
+ *   trans – scroll length (viewport heights) of the camera move INTO the stop
+ *   dwell – scroll length spent parked on the stop (the screen's dwell is where the tabs slide)
  *
- * The camera never follows the scroll linearly: during a transition it runs on an eased curve (a fast,
- * cinematic whip), and while dwelling it holds still, so each section "lands" on its screen.
+ * Everything is scrubbed straight from the scroll position (no auto-scrolling), so it always
+ * moves exactly as fast as the visitor does.
  */
-export type StopId = "hero" | "welcome" | "about" | "skills" | "work" | "journey" | "contact";
+export type StopId = "hero" | "desk" | "screen";
+
+export const TABS = [
+  { id: "about", label: "About" },
+  { id: "skills", label: "Skills" },
+  { id: "work", label: "Work" },
+  { id: "journey", label: "Journey" },
+  { id: "contact", label: "Contact" },
+] as const;
+
+export type TabId = (typeof TABS)[number]["id"];
 
 export interface Stop {
   id: StopId;
-  label: string;
   trans: number;
   dwell: number;
-  /** how many tabs the dwell pages through (1 = no paging) */
-  pages: number;
 }
 
+/** Scroll length of each section on the screen, in viewport heights. */
+export const TAB_LENGTH = 1.2;
+
 export const STOPS: Stop[] = [
-  { id: "hero", label: "Intro", trans: 0, dwell: 0.2, pages: 1 },
-  { id: "welcome", label: "Workspace", trans: 1.7, dwell: 0.7, pages: 1 },
-  { id: "about", label: "About", trans: 0.9, dwell: 0.9, pages: 1 },
-  { id: "skills", label: "Skills", trans: 0.9, dwell: 0.9, pages: 1 },
-  { id: "work", label: "Work", trans: 0.9, dwell: 2.4, pages: 4 },
-  { id: "journey", label: "Journey", trans: 0.9, dwell: 2.4, pages: 4 },
-  { id: "contact", label: "Contact", trans: 1.2, dwell: 0.3, pages: 1 },
+  { id: "hero", trans: 0, dwell: 0.15 },
+  { id: "desk", trans: 1.4, dwell: 0.35 },
+  // the last tab needs no scroll after it, hence (tabs - 1)
+  { id: "screen", trans: 1.1, dwell: (TABS.length - 1) * TAB_LENGTH },
 ];
 
-export const STOP_INDEX = Object.fromEntries(STOPS.map((s, i) => [s.id, i])) as Record<StopId, number>;
+export const SCREEN = STOPS.length - 1;
 
 interface Segment {
   transStart: number;
@@ -51,7 +61,7 @@ export const SEGMENTS: Segment[] = (() => {
 export const TRACK = SEGMENTS[SEGMENTS.length - 1].dwellEnd;
 
 export interface TrackPos {
-  /** linear stop coordinate: 2.4 = 40% of the way from stop 2 to stop 3 */
+  /** linear stop coordinate: 1.4 = 40% of the way from stop 1 to stop 2 */
   p: number;
   /** 0..1 within the current dwell, or -1 while moving between stops */
   dwell: number;
@@ -72,5 +82,15 @@ export function trackAt(y: number): TrackPos {
   return { p: 0, dwell: 0 };
 }
 
-/** Scroll offset (in viewport heights) where stop `i` is reached. */
+/**
+ * Section position on the screen (0 .. sections-1) for a scroll offset: plain and linear, so the page inside
+ * the monitor scrolls just like a normal one (Lenis already smooths it).
+ */
+export function tabAt(y: number): number {
+  const s = SEGMENTS[SCREEN];
+  return Math.max(0, Math.min((y - s.dwellStart) / TAB_LENGTH, TABS.length - 1));
+}
+
+/** Scroll offset (viewport heights) where a stop is reached, or where a tab is centred. */
 export const stopStart = (i: number) => SEGMENTS[i]?.dwellStart ?? 0;
+export const tabStart = (i: number) => SEGMENTS[SCREEN].dwellStart + i * TAB_LENGTH;

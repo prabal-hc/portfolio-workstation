@@ -3,69 +3,53 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
 import { state } from "@/lib/state";
-import { SEGMENTS, stopStart, STOPS, trackAt } from "@/lib/timeline";
+import { stopStart, TABS, tabAt, tabStart, trackAt } from "@/lib/timeline";
+
+/** Every resting point on the page, in viewport heights: the two wide shots, then each tab on the screen. */
+const restPoints = () => [stopStart(0), stopStart(1), ...TABS.map((_, i) => tabStart(i))];
+
+const glide = (y: number) => {
+  const l = state.lenis;
+  if (!l) return;
+  const far = Math.abs(y * window.innerHeight - l.scroll) / window.innerHeight;
+  l.scrollTo(y * window.innerHeight, { duration: Math.min(0.9 + far * 0.35, 2.2), easing: (t) => 1 - Math.pow(1 - t, 4) });
+};
+
+/** Scroll to a camera stop. */
+export const goToStop = (i: number) => glide(stopStart(i));
+/** Scroll to a tab on the screen. */
+export const goToTab = (i: number) => glide(tabStart(i));
 
 /**
- * Lenis smooth scroll, mapped onto the stop track. When the visitor stops scrolling half-way through a move,
- * the page finishes the move for them, so every scroll gesture plays one complete cinematic cut.
+ * Lenis smooth scroll, mapped onto the track. The camera and the tabs are scrubbed straight from the
+ * (smoothed) scroll position, so the page moves exactly with the visitor, never on its own.
  */
 export default function SmoothScroll() {
   useEffect(() => {
-    const lenis = new Lenis({ lerp: 0.1, wheelMultiplier: 0.9, touchMultiplier: 1.4 });
+    const lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.8, touchMultiplier: 1.3 });
     state.lenis = lenis;
-    if (!state.started) lenis.stop();
-
-    let dir = 1;
-    let idle = 0;
-    let snapping = false;
 
     const sync = () => {
-      state.track = trackAt(lenis.scroll / window.innerHeight);
-    };
-
-    const snap = () => {
-      if (snapping || !state.started) return;
       const y = lenis.scroll / window.innerHeight;
-      for (let i = 1; i < SEGMENTS.length; i++) {
-        const s = SEGMENTS[i];
-        if (y > s.transStart && y < s.dwellStart) {
-          const u = (y - s.transStart) / (s.dwellStart - s.transStart);
-          if (u < 0.015 || u > 0.985) return;
-          const to = dir > 0 ? s.dwellStart : s.transStart;
-          snapping = true;
-          lenis.scrollTo(to * window.innerHeight, {
-            duration: i === 1 ? 2.2 : 1.05,
-            easing: (t) => 1 - Math.pow(1 - t, 3),
-            onComplete: () => void (snapping = false),
-          });
-          window.setTimeout(() => void (snapping = false), 2600);
-          return;
-        }
-      }
+      state.track = trackAt(y);
+      state.tab = tabAt(y);
     };
-
-    lenis.on("scroll", (l: Lenis) => {
-      sync();
-      if (l.direction) dir = l.direction;
-      window.clearTimeout(idle);
-      idle = window.setTimeout(snap, 170);
-    });
+    lenis.on("scroll", sync);
     window.addEventListener("resize", sync);
     sync();
 
-    // keyboard: arrows / page keys jump a whole stop
+    // arrows / page keys / space glide to the next resting point
     const onKey = (e: KeyboardEvent) => {
-      if (!state.started) return;
       const k = e.key;
-      const fwd = k === "ArrowDown" || k === "PageDown" || (k === " " && !e.shiftKey);
-      const back = k === "ArrowUp" || k === "PageUp" || (k === " " && e.shiftKey);
+      const fwd = k === "ArrowDown" || k === "PageDown" || k === "ArrowRight" || (k === " " && !e.shiftKey);
+      const back = k === "ArrowUp" || k === "PageUp" || k === "ArrowLeft" || (k === " " && e.shiftKey);
       if (!fwd && !back) return;
-      const target = (e.target as HTMLElement | null)?.closest("input, textarea, [contenteditable]");
-      if (target) return;
+      if ((e.target as HTMLElement | null)?.closest("input, textarea, [contenteditable]")) return;
       e.preventDefault();
-      const cur = Math.round(state.track.p);
-      const next = Math.max(0, Math.min(STOPS.length - 1, cur + (fwd ? 1 : -1)));
-      lenis.scrollTo(stopStart(next) * window.innerHeight, { duration: next === 1 || cur === 1 ? 2.2 : 1.1 });
+      const y = lenis.targetScroll / window.innerHeight;
+      const pts = restPoints();
+      const next = fwd ? pts.find((p) => p > y + 0.02) : [...pts].reverse().find((p) => p < y - 0.02);
+      if (next !== undefined) glide(next);
     };
     window.addEventListener("keydown", onKey);
 
@@ -76,7 +60,6 @@ export default function SmoothScroll() {
 
     return () => {
       cancelAnimationFrame(raf);
-      window.clearTimeout(idle);
       window.removeEventListener("resize", sync);
       window.removeEventListener("keydown", onKey);
       lenis.destroy();
@@ -85,15 +68,4 @@ export default function SmoothScroll() {
   }, []);
 
   return null;
-}
-
-/** Scroll to a stop (and optionally a tab within it). */
-export function goTo(stop: number, page?: number) {
-  const l = state.lenis;
-  if (!l) return;
-  const s = SEGMENTS[stop];
-  const pages = STOPS[stop].pages;
-  const y = page === undefined ? s.dwellStart : s.dwellStart + ((page + 0.5) / pages) * (s.dwellEnd - s.dwellStart);
-  const far = Math.abs(Math.round(state.track.p) - stop) > 1;
-  l.scrollTo(y * window.innerHeight, { duration: far ? 2.4 : 1.2 });
 }
